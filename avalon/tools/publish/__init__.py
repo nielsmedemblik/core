@@ -1,4 +1,5 @@
 import os
+import sys
 from pyblish import api
 
 ICON = os.path.join(os.path.dirname(api.__file__), "icons", "logo-32x32.svg")
@@ -24,10 +25,10 @@ def _discover_gui():
 
     for gui in list(guis) + ["pyblish_qml"]:  # Incl. default
         try:
-            gui = __import__(gui).show
+            gui = __import__(gui)
         except (ImportError, AttributeError):
             continue
         else:
-            return gui
+            return gui.show
 
     raise ImportError("No Pyblish GUI found")

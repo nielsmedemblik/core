@@ -162,8 +162,9 @@ class Window(QtWidgets.QDialog):
         """Selected assets have changed"""
 
         assets_model = self.data["model"]["assets"]
-        subsets_widget = self.data["model"]["subsets"]
-        subsets_model = subsets_widget.model
+        subsets = self.data["model"]["subsets"]
+        subsets_model = subsets.model
+        subsets_model.clear()
 
         t1 = time.time()
 
@@ -182,17 +183,6 @@ class Window(QtWidgets.QDialog):
             document_name = document["name"]
             document_silo = document.get("silo")
 
-        # Start loading
-        subsets_widget.set_loading_state(loading=bool(document_name),
-                                         empty=True)
-
-        def on_refreshed(has_item):
-            empty = not has_item
-            subsets_widget.set_loading_state(loading=False, empty=empty)
-            subsets_model.refreshed.disconnect()
-            self.echo("Duration: %.3fs" % (time.time() - t1))
-
-        subsets_model.refreshed.connect(on_refreshed)
         subsets_model.set_asset(document_id)
 
         # Clear the version information on asset change
@@ -201,6 +191,7 @@ class Window(QtWidgets.QDialog):
         self.data["state"]["context"]["asset"] = document_name
         self.data["state"]["context"]["assetId"] = document_id
         self.data["state"]["context"]["silo"] = document_silo
+        self.echo("Duration: %.3fs" % (time.time() - t1))
 
     def _versionschanged(self):
 
@@ -263,6 +254,14 @@ class Window(QtWidgets.QDialog):
         lib.schedule(widget.hide, 5000, channel="message")
 
     def closeEvent(self, event):
+        # Kill on holding SHIFT
+        modifiers = QtWidgets.QApplication.queryKeyboardModifiers()
+        shift_pressed = QtCore.Qt.ShiftModifier & modifiers
+
+        if shift_pressed:
+            print("Force quitted..")
+            self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+
         # Kill on holding SHIFT
         modifiers = QtWidgets.QApplication.queryKeyboardModifiers()
         shift_pressed = QtCore.Qt.ShiftModifier & modifiers
@@ -388,37 +387,17 @@ def show(debug=False, parent=None, use_context=False):
     """Display Loader GUI
 
     Arguments:
-        debug (bool, optional): Run loader in debug-mode,
-            defaults to False
+        debug (bool, optional): Run loader in debug-mode, defaults to False
         parent (QtCore.QObject, optional): The Qt object to parent to.
         use_context (bool): Whether to apply the current context upon launch
 
     """
 
-    # Remember window
-    if module.window is not None:
-        try:
-            module.window.show()
-
-            # If the window is minimized then unminimize it.
-            if module.window.windowState() & QtCore.Qt.WindowMinimized:
-                module.window.setWindowState(QtCore.Qt.WindowActive)
-
-            # Raise and activate the window
-            module.window.raise_()             # for MacOS
-            module.window.activateWindow()     # for Windows
-            module.window.refresh()
-            return
-        except RuntimeError as exc:
-            if not str(exc).rstrip().endswith("already deleted."):
-                raise
-
-            # Garbage collected
-            module.window = None
-
-    if debug:
-        import traceback
-        sys.excepthook = lambda typ, val, tb: traceback.print_last()
+    try:
+        module.window.close()
+        del module.window
+    except (RuntimeError, AttributeError):
+        pass
 
     with lib.application():
 
@@ -452,8 +431,6 @@ def cli(args):
 
     args = parser.parse_args(args)
     project = args.project
-
-    print("Entering Project: %s" % project)
 
     io.install()
 

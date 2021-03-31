@@ -1,19 +1,17 @@
-import sys
-import os
 import getpass
+import logging
+import os
+import platform
 import re
 import shutil
-import logging
-import platform
+import sys
 
-from ...vendor.Qt import QtWidgets, QtCore
-from ... import style, io, api, pipeline
-
+from ... import api, io, pipeline, style
+from ...vendor.Qt import QtCore, QtWidgets
 from .. import lib as tools_lib
-from ..widgets import AssetWidget
-from ..models import TasksModel
 from ..delegates import PrettyTimeDelegate
-
+from ..models import TasksModel
+from ..widgets import AssetWidget
 from .model import FilesModel
 from .view import FilesView
 
@@ -46,23 +44,22 @@ class NameWindow(QtWidgets.QDialog):
 
         # Set work file data for template formatting
         self.data = {
-            "project": io.find_one({"name": session["AVALON_PROJECT"],
-                                    "type": "project"}),
-            "asset": io.find_one({"name": session["AVALON_ASSET"],
-                                  "type": "asset"}),
+            "project": io.find_one(
+                {"name": session["AVALON_PROJECT"], "type": "project"}
+            ),
+            "asset": io.find_one({"name": session["AVALON_ASSET"], "type": "asset"}),
             "task": {
                 "name": session["AVALON_TASK"].lower(),
-                "label": session["AVALON_TASK"]
+                "label": session["AVALON_TASK"],
             },
             "version": 1,
             "user": getpass.getuser(),
-            "comment": ""
+            "comment": "",
         }
 
         # Define work files template
         templates = self.data["project"]["config"]["template"]
-        template = templates.get("workfile",
-                                 "{task[name]}_v{version:0>4}<_{comment}>")
+        template = templates.get("workfile", "{task[name]}_v{version:0>4}<_{comment}>")
         self.template = template
 
         self.widgets = {
@@ -74,7 +71,7 @@ class NameWindow(QtWidgets.QDialog):
             "inputs": QtWidgets.QWidget(),
             "buttons": QtWidgets.QWidget(),
             "okButton": QtWidgets.QPushButton("Ok"),
-            "cancelButton": QtWidgets.QPushButton("Cancel")
+            "cancelButton": QtWidgets.QPushButton("Cancel"),
         }
 
         # Build version
@@ -198,7 +195,6 @@ class NameWindow(QtWidgets.QDialog):
 
             # Find matching files
             files = os.listdir(self.root) if os.path.exists(self.root) else []
-
             # Fast match on extension
             extensions = self.host.file_extensions()
             files = [f for f in files if os.path.splitext(f)[1] in extensions]
@@ -211,7 +207,7 @@ class NameWindow(QtWidgets.QDialog):
             template = re.sub("{version.*}", "([0-9]+)", template)
             template = re.sub("{comment.*?}", ".+?", template)
             template = self.get_work_file(template)
-            template = "^" + template + "$"           # match beginning to end
+            template = "^" + template + "$"  # match beginning to end
 
             # Match with ignore case on Windows due to the Windows
             # OS not being case-sensitive. This avoids later running
@@ -237,8 +233,7 @@ class NameWindow(QtWidgets.QDialog):
 
             # safety check
             path = os.path.join(self.root, self.get_work_file())
-            assert not os.path.exists(path), \
-                "This is a bug, file exists: %s" % path
+            assert not os.path.exists(path), "This is a bug, file exists: %s" % path
 
         else:
             self.widgets["versionValue"].setEnabled(True)
@@ -248,9 +243,7 @@ class NameWindow(QtWidgets.QDialog):
 
         preview = self.widgets["preview"]
         ok = self.widgets["okButton"]
-        preview.setText(
-            "<font color='green'>{0}</font>".format(self.work_file)
-        )
+        preview.setText("<font color='green'>{0}</font>".format(self.work_file))
         if os.path.exists(os.path.join(self.root, self.work_file)):
             preview.setText(
                 "<font color='red'>Cannot create \"{0}\" because file exists!"
@@ -285,9 +278,7 @@ class TasksWidget(QtWidgets.QWidget):
         selection = view.selectionModel()
         selection.currentChanged.connect(self.task_changed)
 
-        self.models = {
-            "tasks": model
-        }
+        self.models = {"tasks": model}
 
         self.widgets = {
             "view": view,
@@ -363,6 +354,7 @@ class TasksWidget(QtWidgets.QWidget):
 
 class FilesWidget(QtWidgets.QWidget):
     """A widget displaying files that allows to save and open files."""
+
     def __init__(self, parent=None):
         super(FilesWidget, self).__init__(parent=parent)
 
@@ -385,12 +377,10 @@ class FilesWidget(QtWidgets.QWidget):
             "list": FilesView(),
             "open": QtWidgets.QPushButton("Open"),
             "browse": QtWidgets.QPushButton("Browse"),
-            "save": QtWidgets.QPushButton("Save As")
+            "save": QtWidgets.QPushButton("Save As"),
         }
 
-        delegates = {
-            "time": PrettyTimeDelegate()
-        }
+        delegates = {"time": PrettyTimeDelegate()}
 
         # Create the files model
         extensions = set(self.host.file_extensions())
@@ -406,7 +396,7 @@ class FilesWidget(QtWidgets.QWidget):
         widgets["list"].setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         # Date modified delegate
         widgets["list"].setItemDelegateForColumn(1, delegates["time"])
-        widgets["list"].setIndentation(3)   # smaller indentation
+        widgets["list"].setIndentation(3)  # smaller indentation
 
         # Default to a wider first filename column it is what we mostly care
         # about and the date modified is relatively small anyway.
@@ -432,9 +422,7 @@ class FilesWidget(QtWidgets.QWidget):
         layout.addWidget(buttons)
 
         widgets["list"].doubleClickedLeft.connect(self.on_open_pressed)
-        widgets["list"].customContextMenuRequested.connect(
-            self.on_context_menu
-        )
+        widgets["list"].customContextMenuRequested.connect(self.on_context_menu)
         widgets["open"].pressed.connect(self.on_open_pressed)
         widgets["browse"].pressed.connect(self.on_browse_pressed)
         widgets["save"].pressed.connect(self.on_save_as_pressed)
@@ -453,7 +441,7 @@ class FilesWidget(QtWidgets.QWidget):
             session = self._get_session()
             self.root = self.host.work_root(session)
 
-            exists = os.path.exists(self.root)
+            exists = os.path.exists(self.root or "")
             self.widgets["browse"].setEnabled(exists)
             self.widgets["open"].setEnabled(exists)
             self.model.set_root(self.root)
@@ -464,9 +452,9 @@ class FilesWidget(QtWidgets.QWidget):
         """Return a modified session for the current asset and task"""
 
         session = api.Session.copy()
-        changes = pipeline.compute_session_changes(session,
-                                                   asset=self._asset,
-                                                   task=self._task)
+        changes = pipeline.compute_session_changes(
+            session, asset=self._asset, task=self._task
+        )
         session.update(changes)
 
         return session
@@ -475,9 +463,9 @@ class FilesWidget(QtWidgets.QWidget):
         """Enter the asset and task session currently selected"""
 
         session = api.Session.copy()
-        changes = pipeline.compute_session_changes(session,
-                                                   asset=self._asset,
-                                                   task=self._task)
+        changes = pipeline.compute_session_changes(
+            session, asset=self._asset, task=self._task
+        )
         if not changes:
             # Return early if we're already in the right Session context
             # to avoid any unwanted Task Changed callbacks to be triggered.
@@ -502,8 +490,10 @@ class FilesWidget(QtWidgets.QWidget):
                     # we can't actually automatically do so if the current
                     # file has not been saved with a name yet. So we'll have
                     # to opt out.
-                    log.error("Can't save scene with no filename. Please "
-                              "first save your work file using 'Save As'.")
+                    log.error(
+                        "Can't save scene with no filename. Please "
+                        "first save your work file using 'Save As'."
+                    )
                     return
 
                 # Save current scene, continue to open file
@@ -554,9 +544,7 @@ class FilesWidget(QtWidgets.QWidget):
         """
         session = self._get_session()
 
-        window = NameWindow(parent=self,
-                            root=self.root,
-                            session=session)
+        window = NameWindow(parent=self, root=self.root, session=session)
         window.exec_()
 
         return window.get_result()
@@ -569,9 +557,7 @@ class FilesWidget(QtWidgets.QWidget):
             return
 
         src = self._get_selected_filepath()
-        dst = os.path.join(
-            self.root, work_file
-        )
+        dst = os.path.join(self.root, work_file)
         shutil.copy(src, dst)
 
         self.refresh()
@@ -601,9 +587,7 @@ class FilesWidget(QtWidgets.QWidget):
         filter = " *".join(self.host.file_extensions())
         filter = "Work File (*{0})".format(filter)
         work_file = QtWidgets.QFileDialog.getOpenFileName(
-            caption="Work Files",
-            dir=self.root,
-            filter=filter
+            caption="Work Files", directory=self.root, filter=filter
         )[0]
 
         if not work_file:
@@ -623,13 +607,12 @@ class FilesWidget(QtWidgets.QWidget):
             self.initialize_work_directory()
             if not os.path.exists(self.root):
                 # Failed to initialize Work Directory
-                log.error("Failed to initialize Work Directory: "
-                          "%s", self.root)
+                log.error("Failed to initialize Work Directory: " "%s", self.root)
                 return
 
         file_path = os.path.join(self.root, work_file)
 
-        self._enter_session()   # Make sure we are in the right session
+        self._enter_session()  # Make sure we are in the right session
         self.host.save_file(file_path)
         self.set_asset_task(self._asset, self._task)
         self.refresh()
@@ -647,22 +630,26 @@ class FilesWidget(QtWidgets.QWidget):
 
         # Inputs (from the switched session and running app)
         session = api.Session.copy()
-        changes = pipeline.compute_session_changes(session,
-                                                   asset=self._asset,
-                                                   task=self._task)
+        changes = pipeline.compute_session_changes(
+            session, asset=self._asset, task=self._task
+        )
         session.update(changes)
 
         # Find the application definition
         app_name = os.environ.get("AVALON_APP_NAME")
         if not app_name:
-            log.error("No AVALON_APP_NAME session variable is set. "
-                      "Unable to initialize app Work Directory.")
+            log.error(
+                "No AVALON_APP_NAME session variable is set. "
+                "Unable to initialize app Work Directory."
+            )
             return
 
         app_definition = pipeline.lib.get_application(app_name)
-        App = type("app_%s" % app_name,
-                   (pipeline.Application,),
-                   {"config": app_definition.copy()})
+        App = type(
+            "app_%s" % app_name,
+            (pipeline.Application,),
+            {"config": app_definition.copy()},
+        )
 
         # Initialize within the new session's environment
         app = App()
@@ -675,11 +662,11 @@ class FilesWidget(QtWidgets.QWidget):
 
     def refresh(self):
         """Refresh listed files for current selection in the interface"""
+
         self.model.refresh()
 
         if self.auto_select_latest_modified:
-            tools_lib.schedule(self._select_last_modified_file,
-                               100)
+            tools_lib.schedule(self._select_last_modified_file, 100)
 
     def on_context_menu(self, point):
 
@@ -722,7 +709,7 @@ class FilesWidget(QtWidgets.QWidget):
             if not index.isValid():
                 continue
 
-            modified = index.data(role)
+            modified = index.data(role) or 0
             if modified > highest:
                 highest_index = index
                 highest = modified
@@ -733,6 +720,7 @@ class FilesWidget(QtWidgets.QWidget):
 
 class Window(QtWidgets.QMainWindow):
     """Work Files Window"""
+
     title = "Work Files"
 
     def __init__(self, parent=None):
@@ -740,16 +728,14 @@ class Window(QtWidgets.QMainWindow):
         self.setWindowTitle(self.title)
         self.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.WindowCloseButtonHint)
 
-        pages = {
-            "home": QtWidgets.QWidget()
-        }
+        pages = {"home": QtWidgets.QWidget()}
 
         widgets = {
             "pages": QtWidgets.QStackedWidget(),
             "body": QtWidgets.QWidget(),
             "assets": AssetWidget(),
             "tasks": TasksWidget(),
-            "files": FilesWidget()
+            "files": FilesWidget(),
         }
 
         self.setCentralWidget(widgets["pages"])
@@ -807,10 +793,7 @@ class Window(QtWidgets.QMainWindow):
 
         if "asset" in context:
             asset = context["asset"]
-            asset_document = io.find_one({
-                "name": asset,
-                "type": "asset"
-            })
+            asset_document = io.find_one({"name": asset, "type": "asset"})
 
             # Select the asset
             self.widgets["assets"].select_assets([asset], expand=True)
@@ -854,37 +837,45 @@ class Window(QtWidgets.QMainWindow):
         files.refresh()
 
 
-def show(root=None, debug=False, parent=None, use_context=True):
-    """Show Work Files GUI"""
+def show(root=None, debug=False, parent=None, use_context=True, save=True):
+    """Show Work Files GUI
+
+    Arguments:
+        root (str, optional): The root for the work files app
+        debug (bool, optional): Run in debug-mode, defaults to False
+        parent (QtCore.QObject, optional): When provided parent the interface
+            to this QObject.
+    """
     # todo: remove `root` argument to show()
 
-    if module.window:
+    try:
         module.window.close()
-        del(module.window)
+        del module.window
+    except (RuntimeError, AttributeError):
+        pass
 
     host = api.registered_host()
     if host is None:
         raise RuntimeError("No registered host.")
 
     # Verify the host has implemented the api for Work Files
-    required = ["open_file",
-                "save_file",
-                "current_file",
-                "has_unsaved_changes",
-                "work_root",
-                "file_extensions",
-                ]
+    required = [
+        "open_file",
+        "save_file",
+        "current_file",
+        "has_unsaved_changes",
+        "work_root",
+        "file_extensions",
+    ]
     missing = []
     for name in required:
         if not hasattr(host, name):
             missing.append(name)
     if missing:
-        raise RuntimeError("Host is missing required Work Files interfaces: "
-                           "%s (host: %s)" % (", ".join(missing), host))
-
-    if debug:
-        api.Session["AVALON_ASSET"] = "Mock"
-        api.Session["AVALON_TASK"] = "Testing"
+        raise RuntimeError(
+            "Host is missing required Work Files interfaces: "
+            "%s (host: %s)" % (", ".join(missing), host)
+        )
 
     with tools_lib.application():
 
@@ -892,14 +883,17 @@ def show(root=None, debug=False, parent=None, use_context=True):
         window.refresh()
 
         if use_context:
-            context = {"asset": api.Session["AVALON_ASSET"],
-                       "silo": api.Session["AVALON_SILO"],
-                       "task": api.Session["AVALON_TASK"]}
+            context = {
+                "asset": api.Session["AVALON_ASSET"],
+                "silo": api.Session["AVALON_SILO"],
+                "task": api.Session["AVALON_TASK"],
+            }
             window.set_context(context)
+
+        window.widgets["files"].widgets["save"].setEnabled(save)
 
         window.show()
         window.setStyleSheet(style.load_stylesheet())
-
         module.window = window
 
         # Pull window to the front.

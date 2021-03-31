@@ -5,7 +5,7 @@ import contextlib
 from .. import io, api, style
 from ..vendor import qtawesome
 
-from ..vendor.Qt import QtWidgets, QtCore
+from ..vendor.Qt import QtWidgets, QtCore, QtGui
 
 self = sys.modules[__name__]
 self._jobs = dict()
@@ -113,7 +113,6 @@ def preserve_states(tree_view,
                     role=None,
                     preserve_expanded=True,
                     preserve_selection=True,
-                    current_index=True,
                     expanded_role=QtCore.Qt.DisplayRole,
                     selection_role=QtCore.Qt.DisplayRole):
     """Preserves row selection in QTreeView by column's data role.
@@ -152,11 +151,6 @@ def preserve_states(tree_view,
         if selected_rows:
             selected = set(row.data(selection_role) for row in selected_rows)
 
-    if current_index:
-        current_index_value = tree_view.currentIndex().data(role)
-    else:
-        current_index_value = None
-
     try:
         yield
     finally:
@@ -181,10 +175,6 @@ def preserve_states(tree_view,
                 if state:
                     tree_view.scrollTo(index)  # Ensure item is visible
                     selection_model.select(index, flags)
-
-                if current_index_value and value == current_index_value:
-                    selection_model.setCurrentIndex(index,
-                                                    selection_model.NoUpdate)
 
 
 @contextlib.contextmanager
@@ -478,10 +468,3 @@ def project_use_silo(project_doc):
         if "{silo}" in template:
             return True
     return False
-
-
-def create_qthread(func, *args, **kwargs):
-    class Thread(QtCore.QThread):
-        def run(self):
-            func(*args, **kwargs)
-    return Thread()
